@@ -20,7 +20,6 @@ This script generates comprehensive test data for Stripe development and testing
 - **Payment Method Variety**: Attaches 1-4 payment methods per customer including:
   - Standard cards (Visa, Mastercard, Amex, Discover, Diners Club, JCB, UnionPay)
   - US Bank Account
-  - Testing scenarios (Declined cards, Insufficient funds, Lost card, Processing error)
   - Automatically sets first payment method as default
 - **Invoice Status Diversity**: Generates invoices in all possible states (draft, open, paid, void, uncollectible)
 - **Tax Configuration**: Creates both inclusive and exclusive tax rates compatible with Stripe's tax_behavior requirements

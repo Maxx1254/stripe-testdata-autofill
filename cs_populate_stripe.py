@@ -22,11 +22,7 @@ PAYMENT_METHODS = [
     {"type": "card", "token": "pm_card_diners", "brand": "Diners Club"},
     {"type": "card", "token": "pm_card_jcb", "brand": "JCB"},
     {"type": "card", "token": "pm_card_unionpay", "brand": "UnionPay"},
-    {"type": "us_bank_account", "token": "pm_usBankAccount", "brand": "US Bank Account"},
-    {"type": "card", "token": "pm_card_visa_chargeDeclined", "brand": "Visa Declined"},
-    {"type": "card", "token": "pm_card_visa_chargeDeclinedInsufficientFunds", "brand": "Visa Insufficient Funds"},
-    {"type": "card", "token": "pm_card_visa_chargeDeclinedLostCard", "brand": "Visa Card Lost"},
-    {"type": "card", "token": "pm_card_chargeDeclinedProcessingError", "brand": "Generic Card Processing Error"},
+    {"type": "us_bank_account", "token": "pm_usBankAccount", "brand": "US Bank Account"}
 ]
 
 # Standard billing intervals
