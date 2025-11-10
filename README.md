@@ -17,7 +17,11 @@ This script generates comprehensive test data for Stripe development and testing
 - **Realistic Test Data**: Uses the Faker library to generate authentic-looking customer information including names, emails, addresses, and phone numbers
 - **Diverse Subscription Statuses**: Creates subscriptions in various states (active, trialing, past_due, canceled, unpaid) with weighted distribution
 - **Multiple Billing Intervals**: Supports daily, weekly, monthly, and yearly recurring prices
-- **Payment Method Variety**: Attaches multiple payment methods (Visa, Mastercard, Amex, Discover, etc.) to each customer with automatic default selection
+- **Payment Method Variety**: Attaches 1-4 payment methods per customer including:
+  - Standard cards (Visa, Mastercard, Amex, Discover, Diners Club, JCB, UnionPay)
+  - US Bank Account
+  - Testing scenarios (Declined cards, Insufficient funds, Lost card, Processing error)
+  - Automatically sets first payment method as default
 - **Invoice Status Diversity**: Generates invoices in all possible states (draft, open, paid, void, uncollectible)
 - **Tax Configuration**: Creates both inclusive and exclusive tax rates compatible with Stripe's tax_behavior requirements
 
@@ -33,19 +37,22 @@ This script generates comprehensive test data for Stripe development and testing
 
 2. Install required dependencies:
 
-```pip install stripe faker```
-
-## Configuration
-
-Replace the API key in the script with your own Stripe test key:
-
-```stripe.api_key = "sk_test_YOUR_TEST_KEY_HERE"```
+```bash
+pip install stripe faker
+```
 
 ## Usage
 
-Run the script:
+1. Run the script with Python:
+```bash
+python cs_populate_stripe.py
+```
 
-```python cs_stripe_populate.py```
+2. When prompted, enter your Stripe test API key (starts with `sk_test_`).
+
+The script will validate the API key format before proceeding with data creation.
+
+For security, the API key is not stored in the code and must be provided each time you run the script.
 
 ## Data Distribution
 
@@ -55,6 +62,26 @@ Run the script:
 - **Past Due**: 10% - Subscriptions with failed payments
 - **Canceled**: 15% - Canceled subscriptions
 - **Unpaid**: 10% - Subscriptions with unpaid invoices
+
+### Payment Methods
+The script uses Stripe's test payment method tokens, including:
+- Standard Payment Cards:
+  - Visa (`pm_card_visa`)
+  - Mastercard (`pm_card_mastercard`)
+  - American Express (`pm_card_amex`)
+  - Discover (`pm_card_discover`)
+  - Diners Club (`pm_card_diners`)
+  - JCB (`pm_card_jcb`)
+  - UnionPay (`pm_card_unionpay`)
+- Alternative Payment Methods:
+  - US Bank Account (`pm_usBankAccount`)
+- Test Scenario Cards:
+  - Generic Declined Card (`pm_card_visa_chargeDeclined`)
+  - Insufficient Funds (`pm_card_visa_chargeDeclinedInsufficientFunds`)
+  - Lost Card (`pm_card_visa_chargeDeclinedLostCard`)
+  - Processing Error (`pm_card_chargeDeclinedProcessingError`)
+
+Each customer gets 1-4 randomly selected payment methods, with the first one set as the default payment method.
 
 ### Invoice Statuses
 - **Draft**: 10 invoices - Not yet finalized

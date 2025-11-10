@@ -3,13 +3,17 @@ import random
 from datetime import datetime, timedelta
 from faker import Faker
 
-# Ініціалізуємо Faker
+# Faker initialization
 fake = Faker()
 
-# Встановлюємо API ключ
-stripe.api_key = "sk_test_YOUR_TEST_KEY_HERE"
+# Asking user for Stripe API key
+stripe.api_key = input("Please enter your Stripe test API key (starts with 'sk_test_'): ").strip()
 
-# Тестові картки та банківські рахунки
+# Checking validity of the key
+if not stripe.api_key.startswith('sk_test_'):
+    raise ValueError("Invalid API key. The key must start with 'sk_test_'")
+
+# Test payment methods tokens (Stripe test tokens)
 PAYMENT_METHODS = [
     {"type": "card", "token": "pm_card_visa", "brand": "Visa"},
     {"type": "card", "token": "pm_card_mastercard", "brand": "Mastercard"},
@@ -19,9 +23,13 @@ PAYMENT_METHODS = [
     {"type": "card", "token": "pm_card_jcb", "brand": "JCB"},
     {"type": "card", "token": "pm_card_unionpay", "brand": "UnionPay"},
     {"type": "us_bank_account", "token": "pm_usBankAccount", "brand": "US Bank Account"},
+    {"type": "card", "token": "pm_card_visa_chargeDeclined", "brand": "Visa Declined"},
+    {"type": "card", "token": "pm_card_visa_chargeDeclinedInsufficientFunds", "brand": "Visa Insufficient Funds"},
+    {"type": "card", "token": "pm_card_visa_chargeDeclinedLostCard", "brand": "Visa Card Lost"},
+    {"type": "card", "token": "pm_card_chargeDeclinedProcessingError", "brand": "Generic Card Processing Error"},
 ]
 
-# Стандартні періоди оплати
+# Standard billing intervals
 BILLING_INTERVALS = [
     {"interval": "day"},
     {"interval": "week"},
@@ -29,7 +37,7 @@ BILLING_INTERVALS = [
     {"interval": "year"},
 ]
 
-# Типи податків
+# Tax types to create
 TAX_TYPES = [
     {"display_name": "Sales Tax", "percentage": 7.25, "inclusive": False, "description": "US Sales Tax"},
     {"display_name": "Sales Tax Inclusive", "percentage": 8.5, "inclusive": True, "description": "US Sales Tax (Inclusive)"},
@@ -39,7 +47,7 @@ TAX_TYPES = [
     {"display_name": "GST Inclusive", "percentage": 10, "inclusive": True, "description": "Australia GST (Inclusive)"},
 ]
 
-# Статуси підписок з вагами (для розподілу)
+# Subscription status distribution
 SUBSCRIPTION_STATUS_DISTRIBUTION = {
     "active": 0.50,           # 50%
     "trialing": 0.15,         # 15%
@@ -49,8 +57,8 @@ SUBSCRIPTION_STATUS_DISTRIBUTION = {
 }
 
 def create_tax_rates():
-    """Створює податкові ставки"""
-    print("Створюємо податкові ставки...")
+    """Creates tax rates"""
+    print("Creating tax rates...")
     tax_rates_by_type = {
         "inclusive": [],
         "exclusive": []
@@ -65,42 +73,42 @@ def create_tax_rates():
                 inclusive=tax["inclusive"],
             )
             
-            # Групуємо податки за типом (inclusive/exclusive)
+            # Tax grouping by type (inclusive/exclusive)
             if tax["inclusive"]:
                 tax_rates_by_type["inclusive"].append(tax_rate.id)
             else:
                 tax_rates_by_type["exclusive"].append(tax_rate.id)
                 
-            print(f"✓ Створено податок: {tax['display_name']}")
+            print(f"✓ Created tax rate: {tax['display_name']}")
         except Exception as e:
-            print(f"✗ Помилка при створенні податку {tax['display_name']}: {e}")
+            print(f"✗ Error creating tax rate {tax['display_name']}: {e}")
     
     return tax_rates_by_type
 
 def create_products_and_prices(tax_rates_by_type):
-    """Створює продукти та ціни"""
-    print("\nСтворюємо продукти та ціни...")
+    """Creates products and prices"""
+    print("\nCreating products and prices...")
     products_with_prices = []
     
     for i in range(100):
         try:
-            # Генеруємо реалістичні назви продуктів
+            # Realistic product names generation
             product_name = fake.catch_phrase()
             product_description = fake.bs()
             
-            # Створюємо продукт
+            # Product creation
             product = stripe.Product.create(
                 name=product_name,
                 description=product_description,
             )
             
-            # Створюємо ціну для кожного продукту
+            # Price creation for each product
             interval_config = random.choice(BILLING_INTERVALS)
             
-            # Вибираємо tax_behavior
+            # Tax behavior selection
             tax_behavior = random.choice(["inclusive", "exclusive"])
             
-            # Вибираємо відповідні податки
+            # Corresponding tax rates selection
             available_taxes = tax_rates_by_type[tax_behavior]
             selected_taxes = []
             if available_taxes:
@@ -111,7 +119,7 @@ def create_products_and_prices(tax_rates_by_type):
             
             price = stripe.Price.create(
                 product=product.id,
-                unit_amount=random.randint(500, 50000),  # від $5 до $500
+                unit_amount=random.randint(500, 50000),  # from $5 to $500
                 currency="usd",
                 recurring={
                     "interval": interval_config["interval"],
@@ -126,26 +134,26 @@ def create_products_and_prices(tax_rates_by_type):
                 "tax_behavior": tax_behavior
             })
             
-            print(f"✓ Створено продукт {i+1}/100: {product_name[:40]}... ({interval_config['interval']})")
+            print(f"✓ Created product {i+1}/100: {product_name[:40]}... ({interval_config['interval']})")
         except Exception as e:
-            print(f"✗ Помилка при створенні продукту {i+1}: {e}")
+            print(f"✗ Error creating product {i+1}: {e}")
     
     return products_with_prices
 
 def create_customers_with_payment_methods():
-    """Створює кастомерів з платіжними методами використовуючи Faker"""
-    print("\nСтворюємо кастомерів та платіжні методи...")
+    """Creates customers with payment methods using Faker"""
+    print("\nCreating customers and payment methods...")
     customers = []
     
     for i in range(100):
         try:
-            # Генеруємо реалістичні дані кастомера
+            # Generate realistic customer data
             name = fake.name()
             email = fake.email()
-            phone = fake.phone_number()
+            phone = fake.msisdn()
             company = fake.company() if random.choice([True, False]) else None
             
-            # Створюємо адресу
+            # Create address
             address = {
                 "line1": fake.street_address(),
                 "city": fake.city(),
@@ -154,7 +162,7 @@ def create_customers_with_payment_methods():
                 "country": "US"
             }
             
-            # Створюємо кастомера з реалістичними даними
+            # Create customer with realistic data
             customer_params = {
                 "name": name,
                 "email": email,
@@ -168,7 +176,7 @@ def create_customers_with_payment_methods():
             
             customer = stripe.Customer.create(**customer_params)
             
-            # Додаємо випадкову кількість платіжних методів (1-4)
+            # Add random number of payment methods (1-4)
             num_payment_methods = random.randint(1, 4)
             selected_methods = random.sample(PAYMENT_METHODS, k=num_payment_methods)
             
@@ -176,14 +184,14 @@ def create_customers_with_payment_methods():
             
             for idx, pm_data in enumerate(selected_methods):
                 try:
-                    # Прикріплюємо платіжний метод до кастомера
+                    # Attach payment method to customer
                     payment_method = stripe.PaymentMethod.attach(
                         pm_data["token"],
                         customer=customer.id,
                     )
                     attached_payment_methods.append(payment_method.id)
                     
-                    # Перший метод встановлюємо як default
+                    # Set first method as default
                     if idx == 0:
                         stripe.Customer.modify(
                             customer.id,
@@ -192,28 +200,28 @@ def create_customers_with_payment_methods():
                             },
                         )
                 except Exception as e:
-                    print(f"  ⚠ Не вдалось прикріпити {pm_data['brand']}: {e}")
+                    print(f"  ⚠ Failed to attach {pm_data['brand']}: {e}")
             
             customers.append({
                 "id": customer.id,
                 "payment_methods": attached_payment_methods
             })
             
-            print(f"✓ Створено кастомера {i+1}/100: {name} з {len(attached_payment_methods)} методами")
+            print(f"✓ Created customer {i+1}/100: {name} with {len(attached_payment_methods)} methods")
         except Exception as e:
-            print(f"✗ Помилка при створенні кастомера {i+1}: {e}")
+            print(f"✗ Error creating customer {i+1}: {e}")
     
     return customers
 
 def get_weighted_random_status():
-    """Вибирає статус підписки згідно з розподілом"""
+    """Selects subscription status according to distribution"""
     statuses = list(SUBSCRIPTION_STATUS_DISTRIBUTION.keys())
     weights = list(SUBSCRIPTION_STATUS_DISTRIBUTION.values())
     return random.choices(statuses, weights=weights, k=1)[0]
 
 def create_subscriptions(customers, products_with_prices):
-    """Створює підписки з різними статусами"""
-    print("\nСтворюємо підписки з різними статусами...")
+    """Creates subscriptions with different statuses"""
+    print("\nCreating subscriptions with different statuses...")
     subscriptions = []
     status_counts = {status: 0 for status in SUBSCRIPTION_STATUS_DISTRIBUTION.keys()}
     
@@ -225,7 +233,7 @@ def create_subscriptions(customers, products_with_prices):
             customer = customers[i]
             product_data = products_with_prices[i]
             
-            # Вибираємо статус згідно з розподілом
+            # Select status according to distribution
             desired_status = get_weighted_random_status()
             status_counts[desired_status] += 1
             
@@ -234,58 +242,58 @@ def create_subscriptions(customers, products_with_prices):
                 "items": [{"price": product_data["price_id"]}],
             }
             
-            # Додаємо податки
+            # Add taxes
             if product_data["tax_rates"]:
                 subscription_params["default_tax_rates"] = product_data["tax_rates"]
             
-            # Налаштовуємо параметри залежно від бажаного статусу
+            # Configure parameters based on desired status
             if desired_status == "trialing":
-                # Додаємо trial period для trialing
+                # Add trial period for trialing status
                 trial_end = int((datetime.now() + timedelta(days=random.randint(7, 30))).timestamp())
                 subscription_params["trial_end"] = trial_end
             elif desired_status == "canceled":
-                # Створюємо active і потім скасовуємо
-                pass  # Скасуємо після створення
+                # Create active and then cancel
+                pass  # Will cancel after creation
             elif desired_status == "past_due":
-                # Для past_due використовуємо картку що відхилить платіж
+                # For past_due use a card that will decline payment
                 subscription_params["payment_behavior"] = "default_incomplete"
             elif desired_status == "unpaid":
-                # Для unpaid потрібна спеціальна конфігурація
+                # For unpaid status, special configuration is needed
                 subscription_params["payment_behavior"] = "default_incomplete"
             
             subscription = stripe.Subscription.create(**subscription_params)
             
-            # Post-processing для специфічних статусів
+            # Post-processing for specific statuses
             if desired_status == "canceled":
                 stripe.Subscription.modify(
                     subscription.id,
                     cancel_at_period_end=True
                 )
-                # Або відразу скасовуємо
+                # Or cancel immediately
                 stripe.Subscription.cancel(subscription.id)
             
             subscriptions.append(subscription.id)
-            print(f"✓ Створено підписку {i+1}/100 з цільовим статусом: {desired_status}")
+            print(f"✓ Created subscription {i+1}/100 with target status: {desired_status}")
             
         except Exception as e:
-            print(f"✗ Помилка при створенні підписки {i+1}: {e}")
+            print(f"✗ Error creating subscription {i+1}: {e}")
     
-    # Виводимо статистику
-    print("\nРозподіл статусів підписок:")
+    # Output statistics
+    print("\nSubscription status distribution:")
     for status, count in status_counts.items():
         print(f"  {status}: {count}")
     
     return subscriptions
 
 def create_standalone_invoices(customers):
-    """Створює окремі інвойси з різними статусами"""
-    print("\nСтворюємо окремі інвойси з різними статусами...")
+    """Creates standalone invoices with different statuses"""
+    print("\nCreating standalone invoices with different statuses...")
     invoices = []
     
-    # Статуси інвойсів: draft, open, paid, uncollectible, void
+    # Invoice statuses: draft, open, paid, uncollectible, void
     invoice_statuses = ["draft", "open", "paid", "void", "uncollectible"]
     
-    # Створюємо по 10 інвойсів кожного типу (50 всього)
+    # Create 10 invoices of each type (50 total)
     for status_type in invoice_statuses:
         for i in range(10):
             if i >= len(customers):
@@ -294,14 +302,14 @@ def create_standalone_invoices(customers):
             try:
                 customer = customers[i]
                 
-                # Створюємо draft invoice
+                # Create draft invoice
                 invoice = stripe.Invoice.create(
                     customer=customer["id"],
                     collection_method="charge_automatically",
                     description=f"Test invoice - {status_type}",
                 )
                 
-                # Додаємо item до інвойсу
+                # Add item to invoice
                 stripe.InvoiceItem.create(
                     customer=customer["id"],
                     invoice=invoice.id,
@@ -310,64 +318,64 @@ def create_standalone_invoices(customers):
                     description=fake.bs(),
                 )
                 
-                # Переводимо в потрібний статус
+                # Change to desired status
                 if status_type == "draft":
-                    # Залишаємо draft
+                    # Keep as draft
                     pass
                 elif status_type == "open":
-                    # Фіналізуємо (open)
+                    # Finalize (open)
                     stripe.Invoice.finalize_invoice(invoice.id)
                 elif status_type == "paid":
-                    # Фіналізуємо і помічаємо як оплачений
+                    # Finalize and mark as paid
                     stripe.Invoice.finalize_invoice(invoice.id)
                     stripe.Invoice.pay(invoice.id)
                 elif status_type == "void":
-                    # Фіналізуємо і void
+                    # Finalize and void
                     stripe.Invoice.finalize_invoice(invoice.id)
                     stripe.Invoice.void_invoice(invoice.id)
                 elif status_type == "uncollectible":
-                    # Фіналізуємо і помічаємо як uncollectible
+                    # Finalize and mark as uncollectible
                     stripe.Invoice.finalize_invoice(invoice.id)
                     stripe.Invoice.mark_uncollectible(invoice.id)
                 
                 invoices.append(invoice.id)
-                print(f"✓ Створено інвойс зі статусом: {status_type}")
+                print(f"✓ Created invoice with status: {status_type}")
                 
             except Exception as e:
-                print(f"✗ Помилка при створенні інвойсу ({status_type}): {e}")
+                print(f"✗ Error creating invoice ({status_type}): {e}")
     
     return invoices
 
 def main():
-    """Головна функція"""
+    """Main function"""
     print("=" * 60)
-    print("Початок заповнення тестового Stripe акаунту")
+    print("Starting test Stripe account population")
     print("=" * 60)
     
-    # 1. Створюємо податкові ставки
+    # 1. Create tax rates
     tax_rates_by_type = create_tax_rates()
     
-    # 2. Створюємо продукти та ціни
+    # 2. Create products and prices
     products_with_prices = create_products_and_prices(tax_rates_by_type)
     
-    # 3. Створюємо кастомерів з платіжними методами
+    # 3. Create customers with payment methods
     customers = create_customers_with_payment_methods()
     
-    # 4. Створюємо підписки з різними статусами
+    # 4. Create subscriptions with different statuses
     subscriptions = create_subscriptions(customers, products_with_prices)
     
-    # 5. Створюємо окремі інвойси з різними статусами
+    # 5. Create standalone invoices with different statuses
     invoices = create_standalone_invoices(customers)
     
     print("\n" + "=" * 60)
-    print("Завершено!")
+    print("Completed!")
     print("=" * 60)
-    print(f"Створено:")
-    print(f"  - Податкових ставок: {len(tax_rates_by_type['inclusive']) + len(tax_rates_by_type['exclusive'])}")
-    print(f"  - Продуктів з цінами: {len(products_with_prices)}")
-    print(f"  - Кастомерів: {len(customers)}")
-    print(f"  - Підписок: {len(subscriptions)}")
-    print(f"  - Окремих інвойсів: {len(invoices)}")
+    print(f"Created:")
+    print(f"  - Tax rates: {len(tax_rates_by_type['inclusive']) + len(tax_rates_by_type['exclusive'])}")
+    print(f"  - Products with prices: {len(products_with_prices)}")
+    print(f"  - Customers: {len(customers)}")
+    print(f"  - Subscriptions: {len(subscriptions)}")
+    print(f"  - Standalone invoices: {len(invoices)}")
     print("=" * 60)
 
 if __name__ == "__main__":
