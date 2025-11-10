@@ -41,13 +41,11 @@ Replace the API key in the script with your own Stripe test key:
 
 ```stripe.api_key = "sk_test_YOUR_TEST_KEY_HERE"```
 
-
 ## Usage
 
 Run the script:
 
 ```python cs_stripe_populate.py```
-
 
 ## Data Distribution
 
@@ -80,16 +78,6 @@ The script creates 6 tax rates:
 - VAT Inclusive (19%, inclusive)
 - GST (5%, exclusive)
 - GST Inclusive (10%, inclusive)
-
-## Script Structure
-
-stripe_populator.py
-├── create_tax_rates() # Creates tax rates
-├── create_products_and_prices() # Generates products with recurring prices
-├── create_customers_with_payment_methods() # Creates customers with realistic data
-├── create_subscriptions() # Creates subscriptions with various statuses
-├── create_standalone_invoices() # Generates invoices in different states
-└── main() # Orchestrates the entire process
 
 ## Error Handling
 
