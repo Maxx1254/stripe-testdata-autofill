@@ -43,6 +43,7 @@ pip install stripe faker
 ## Usage
 
 1. Run the script with Python:
+
 ```bash
 python cs_populate_stripe.py
 ```
@@ -74,11 +75,6 @@ The script uses Stripe's test payment method tokens, including:
   - UnionPay (`pm_card_unionpay`)
 - Alternative Payment Methods:
   - US Bank Account (`pm_usBankAccount`)
-- Test Scenario Cards:
-  - Generic Declined Card (`pm_card_visa_chargeDeclined`)
-  - Insufficient Funds (`pm_card_visa_chargeDeclinedInsufficientFunds`)
-  - Lost Card (`pm_card_visa_chargeDeclinedLostCard`)
-  - Processing Error (`pm_card_chargeDeclinedProcessingError`)
 
 Each customer gets 1-4 randomly selected payment methods, with the first one set as the default payment method.
 
