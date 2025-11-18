@@ -5,10 +5,10 @@ A Python script to populate a Stripe test account with realistic test data inclu
 ## Overview
 
 This script generates comprehensive test data for Stripe development and testing purposes. It creates:
-- 100 products with recurring prices
-- 100 customers with realistic profile information
-- 100 subscriptions with diverse statuses
-- 50 standalone invoices with different states
+- User defined number of products with recurring prices
+- User defined number of customers with realistic profile information
+- User defined number of subscriptions with diverse statuses
+- 15 standalone invoices with different states
 - Multiple payment methods per customer
 - Tax rates (Sales Tax, VAT, GST) with inclusive/exclusive options
 
@@ -16,7 +16,7 @@ This script generates comprehensive test data for Stripe development and testing
 
 - **Realistic Test Data**: Uses the Faker library to generate authentic-looking customer information including names, emails, addresses, and phone numbers
 - **Diverse Subscription Statuses**: Creates subscriptions in various states (active, trialing, past_due, canceled, unpaid) with weighted distribution
-- **Multiple Billing Intervals**: Supports daily, weekly, monthly, and yearly recurring prices
+- **Multiple Billing Intervals**: Supports daily, weekly, monthly, yearly and custom set recurring prices
 - **Payment Method Variety**: Attaches 1-4 payment methods per customer including:
   - Standard cards (Visa, Mastercard, Amex, Discover, Diners Club, JCB, UnionPay)
   - US Bank Account
@@ -54,6 +54,8 @@ The script will validate the API key format before proceeding with data creation
 
 For security, the API key is not stored in the code and must be provided each time you run the script.
 
+3. After the key has been entered, you need to enter the required amount of products, customers and subscriptions.
+
 ## Data Distribution
 
 ### Subscription Statuses
@@ -79,18 +81,25 @@ The script uses Stripe's test payment method tokens, including:
 Each customer gets 1-4 randomly selected payment methods, with the first one set as the default payment method.
 
 ### Invoice Statuses
-- **Draft**: 10 invoices - Not yet finalized
-- **Open**: 10 invoices - Finalized and awaiting payment
-- **Paid**: 10 invoices - Successfully paid
-- **Void**: 10 invoices - Voided invoices
-- **Uncollectible**: 10 invoices - Marked as uncollectible
+- **Draft**: 3 invoices - Not yet finalized
+- **Open**: 3 invoices - Finalized and awaiting payment
+- **Paid**: 3 invoices - Successfully paid
+- **Void**: 3 invoices - Voided invoices
+- **Uncollectible**: 3 invoices - Marked as uncollectible
 
 ### Billing Intervals
 Products are created with one of the following recurring intervals:
 - Daily
+- Every 7 days
 - Weekly
+- Every 2 weeks
+- Every 4 weeks
 - Monthly
+- Every 2 months
+- Every 3 months
+- Every 6 months
 - Yearly
+- Every 2 years
 
 ### Tax Rates
 The script creates 6 tax rates:

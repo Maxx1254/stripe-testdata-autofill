@@ -2,16 +2,44 @@ import stripe
 import random
 from datetime import datetime, timedelta
 from faker import Faker
+import time
+
 
 # Faker initialization
 fake = Faker()
 
+
+def get_positive_integer(prompt, min_value=1):
+    """Gets positive integer input from user with validation"""
+    while True:
+        try:
+            value = int(input(prompt))
+            if value >= min_value:
+                return value
+            else:
+                print(f"Please enter a number >= {min_value}")
+        except ValueError:
+            print("That's not a valid integer. Please try again.")
+
+
 # Asking user for Stripe API key
 stripe.api_key = input("Please enter your Stripe test API key (starts with 'sk_test_'): ").strip()
+
 
 # Checking validity of the key
 if not stripe.api_key.startswith('sk_test_'):
     raise ValueError("Invalid API key. The key must start with 'sk_test_'")
+
+
+# Get quantities from user
+print("\n" + "=" * 60)
+print("Configure data quantities")
+print("=" * 60)
+NUM_PRODUCTS = get_positive_integer("How many products to create? (min 1): ", min_value=1)
+NUM_CUSTOMERS = get_positive_integer("How many customers to create? (min 1): ", min_value=1)
+NUM_SUBSCRIPTIONS = get_positive_integer("How many subscriptions to create? (min 1): ", min_value=1)
+print("=" * 60 + "\n")
+
 
 # Test payment methods tokens (Stripe test tokens)
 PAYMENT_METHODS = [
@@ -25,13 +53,22 @@ PAYMENT_METHODS = [
     {"type": "us_bank_account", "token": "pm_usBankAccount", "brand": "US Bank Account"}
 ]
 
+
 # Standard billing intervals
 BILLING_INTERVALS = [
-    {"interval": "day"},
-    {"interval": "week"},
-    {"interval": "month"},
-    {"interval": "year"},
+    {"interval": "day", "interval_count": 1},      # Daily
+    {"interval": "day", "interval_count": 7},      # Every 7 days
+    {"interval": "week", "interval_count": 1},     # Weekly
+    {"interval": "week", "interval_count": 2},     # Every 2 weeks
+    {"interval": "week", "interval_count": 4},     # Every 4 weeks
+    {"interval": "month", "interval_count": 1},    # Monthly
+    {"interval": "month", "interval_count": 2},    # Every 2 months
+    {"interval": "month", "interval_count": 3},    # Every 3 months
+    {"interval": "month", "interval_count": 6},    # Every 6 months
+    {"interval": "year", "interval_count": 1},     # Yearly
+    {"interval": "year", "interval_count": 2},     # Every 2 years
 ]
+
 
 # Tax types to create
 TAX_TYPES = [
@@ -43,6 +80,7 @@ TAX_TYPES = [
     {"display_name": "GST Inclusive", "percentage": 10, "inclusive": True, "description": "Australia GST (Inclusive)"},
 ]
 
+
 # Subscription status distribution
 SUBSCRIPTION_STATUS_DISTRIBUTION = {
     "active": 0.50,           # 50%
@@ -51,6 +89,7 @@ SUBSCRIPTION_STATUS_DISTRIBUTION = {
     "canceled": 0.15,         # 15%
     "unpaid": 0.10,           # 10%
 }
+
 
 def create_tax_rates():
     """Creates tax rates"""
@@ -81,12 +120,13 @@ def create_tax_rates():
     
     return tax_rates_by_type
 
-def create_products_and_prices(tax_rates_by_type):
+
+def create_products_and_prices(tax_rates_by_type, num_products):
     """Creates products and prices"""
-    print("\nCreating products and prices...")
+    print(f"\nCreating {num_products} products and prices...")
     products_with_prices = []
     
-    for i in range(100):
+    for i in range(num_products):
         try:
             # Realistic product names generation
             product_name = fake.catch_phrase()
@@ -119,6 +159,7 @@ def create_products_and_prices(tax_rates_by_type):
                 currency="usd",
                 recurring={
                     "interval": interval_config["interval"],
+                    "interval_count": interval_config["interval_count"],
                 },
                 tax_behavior=tax_behavior,
             )
@@ -130,18 +171,29 @@ def create_products_and_prices(tax_rates_by_type):
                 "tax_behavior": tax_behavior
             })
             
-            print(f"✓ Created product {i+1}/100: {product_name[:40]}... ({interval_config['interval']})")
+            if interval_config["interval_count"] == 1:
+                interval_display = interval_config["interval"]
+            else:
+                interval_display = f"every {interval_config['interval_count']} {interval_config['interval']}s"
+            
+            print(f"✓ Created product {i+1}/{num_products}: {product_name[:40]}... ({interval_display})")
+            
+            # Rate limiting
+            if (i + 1) % 20 == 0:
+                time.sleep(1)
+                
         except Exception as e:
             print(f"✗ Error creating product {i+1}: {e}")
     
     return products_with_prices
 
-def create_customers_with_payment_methods():
+
+def create_customers_with_payment_methods(num_customers):
     """Creates customers with payment methods using Faker"""
-    print("\nCreating customers and payment methods...")
+    print(f"\nCreating {num_customers} customers and payment methods...")
     customers = []
     
-    for i in range(100):
+    for i in range(num_customers):
         try:
             # Generate realistic customer data
             name = fake.name()
@@ -203,11 +255,17 @@ def create_customers_with_payment_methods():
                 "payment_methods": attached_payment_methods
             })
             
-            print(f"✓ Created customer {i+1}/100: {name} with {len(attached_payment_methods)} methods")
+            print(f"✓ Created customer {i+1}/{num_customers}: {name} with {len(attached_payment_methods)} methods")
+            
+            # Rate limiting
+            if (i + 1) % 20 == 0:
+                time.sleep(1)
+                
         except Exception as e:
             print(f"✗ Error creating customer {i+1}: {e}")
     
     return customers
+
 
 def get_weighted_random_status():
     """Selects subscription status according to distribution"""
@@ -215,19 +273,25 @@ def get_weighted_random_status():
     weights = list(SUBSCRIPTION_STATUS_DISTRIBUTION.values())
     return random.choices(statuses, weights=weights, k=1)[0]
 
-def create_subscriptions(customers, products_with_prices):
+
+def create_subscriptions(customers, products_with_prices, num_subscriptions):
     """Creates subscriptions with different statuses"""
-    print("\nCreating subscriptions with different statuses...")
+    print(f"\nCreating {num_subscriptions} subscriptions with different statuses...")
     subscriptions = []
     status_counts = {status: 0 for status in SUBSCRIPTION_STATUS_DISTRIBUTION.keys()}
     
-    for i in range(100):
-        if i >= len(customers) or i >= len(products_with_prices):
-            break
-            
+    # Check we have enough customers
+    if len(customers) < num_subscriptions:
+        print(f"⚠ Warning: Only {len(customers)} customers available for {num_subscriptions} subscriptions")
+        print(f"  Some customers will have multiple subscriptions")
+    
+    for i in range(num_subscriptions):
         try:
-            customer = customers[i]
-            product_data = products_with_prices[i]
+            # Select customer (cycle through if needed)
+            customer = customers[i % len(customers)]
+            
+            # Select random product from available products
+            product_data = random.choice(products_with_prices)
             
             # Select status according to distribution
             desired_status = get_weighted_random_status()
@@ -244,32 +308,27 @@ def create_subscriptions(customers, products_with_prices):
             
             # Configure parameters based on desired status
             if desired_status == "trialing":
-                # Add trial period for trialing status
                 trial_end = int((datetime.now() + timedelta(days=random.randint(7, 30))).timestamp())
                 subscription_params["trial_end"] = trial_end
             elif desired_status == "canceled":
-                # Create active and then cancel
-                pass  # Will cancel after creation
+                pass
             elif desired_status == "past_due":
-                # For past_due use a card that will decline payment
                 subscription_params["payment_behavior"] = "default_incomplete"
             elif desired_status == "unpaid":
-                # For unpaid status, special configuration is needed
                 subscription_params["payment_behavior"] = "default_incomplete"
             
             subscription = stripe.Subscription.create(**subscription_params)
             
             # Post-processing for specific statuses
             if desired_status == "canceled":
-                stripe.Subscription.modify(
-                    subscription.id,
-                    cancel_at_period_end=True
-                )
-                # Or cancel immediately
                 stripe.Subscription.cancel(subscription.id)
             
             subscriptions.append(subscription.id)
-            print(f"✓ Created subscription {i+1}/100 with target status: {desired_status}")
+            print(f"✓ Created subscription {i+1}/{num_subscriptions} with target status: {desired_status}")
+            
+            # Rate limiting
+            if (i + 1) % 20 == 0:
+                time.sleep(1)
             
         except Exception as e:
             print(f"✗ Error creating subscription {i+1}: {e}")
@@ -281,6 +340,7 @@ def create_subscriptions(customers, products_with_prices):
     
     return subscriptions
 
+
 def create_standalone_invoices(customers):
     """Creates standalone invoices with different statuses"""
     print("\nCreating standalone invoices with different statuses...")
@@ -289,14 +349,14 @@ def create_standalone_invoices(customers):
     # Invoice statuses: draft, open, paid, uncollectible, void
     invoice_statuses = ["draft", "open", "paid", "void", "uncollectible"]
     
-    # Create 10 invoices of each type (50 total)
+    # Create 3 invoices of each type (15 total)
     for status_type in invoice_statuses:
-        for i in range(10):
+        for i in range(3):
             if i >= len(customers):
                 break
             
             try:
-                customer = customers[i]
+                customer = customers[i % len(customers)]
                 
                 # Create draft invoice
                 invoice = stripe.Invoice.create(
@@ -316,21 +376,16 @@ def create_standalone_invoices(customers):
                 
                 # Change to desired status
                 if status_type == "draft":
-                    # Keep as draft
                     pass
                 elif status_type == "open":
-                    # Finalize (open)
                     stripe.Invoice.finalize_invoice(invoice.id)
                 elif status_type == "paid":
-                    # Finalize and mark as paid
                     stripe.Invoice.finalize_invoice(invoice.id)
                     stripe.Invoice.pay(invoice.id)
                 elif status_type == "void":
-                    # Finalize and void
                     stripe.Invoice.finalize_invoice(invoice.id)
                     stripe.Invoice.void_invoice(invoice.id)
                 elif status_type == "uncollectible":
-                    # Finalize and mark as uncollectible
                     stripe.Invoice.finalize_invoice(invoice.id)
                     stripe.Invoice.mark_uncollectible(invoice.id)
                 
@@ -342,6 +397,7 @@ def create_standalone_invoices(customers):
     
     return invoices
 
+
 def main():
     """Main function"""
     print("=" * 60)
@@ -352,13 +408,13 @@ def main():
     tax_rates_by_type = create_tax_rates()
     
     # 2. Create products and prices
-    products_with_prices = create_products_and_prices(tax_rates_by_type)
+    products_with_prices = create_products_and_prices(tax_rates_by_type, NUM_PRODUCTS)
     
     # 3. Create customers with payment methods
-    customers = create_customers_with_payment_methods()
+    customers = create_customers_with_payment_methods(NUM_CUSTOMERS)
     
     # 4. Create subscriptions with different statuses
-    subscriptions = create_subscriptions(customers, products_with_prices)
+    subscriptions = create_subscriptions(customers, products_with_prices, NUM_SUBSCRIPTIONS)
     
     # 5. Create standalone invoices with different statuses
     invoices = create_standalone_invoices(customers)
@@ -373,6 +429,7 @@ def main():
     print(f"  - Subscriptions: {len(subscriptions)}")
     print(f"  - Standalone invoices: {len(invoices)}")
     print("=" * 60)
+
 
 if __name__ == "__main__":
     main()
