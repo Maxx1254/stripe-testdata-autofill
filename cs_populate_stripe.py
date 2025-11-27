@@ -30,16 +30,6 @@ if not stripe.api_key.startswith('sk_test_'):
     raise ValueError("Invalid API key. The key must start with 'sk_test_'")
 
 
-# Get quantities from user
-print("\n" + "=" * 60)
-print("Configure data quantities (enter 0 to skip creation)")
-print("=" * 60)
-NUM_PRODUCTS = get_positive_integer("How many NEW products to create? (0 to skip): ", min_value=0)
-NUM_CUSTOMERS = get_positive_integer("How many NEW customers to create? (0 to skip): ", min_value=0)
-NUM_SUBSCRIPTIONS = get_positive_integer("How many NEW subscriptions to create? (min 1): ", min_value=1)
-print("=" * 60 + "\n")
-
-
 # Successful payment methods
 PAYMENT_METHODS_SUCCESS = [
     {"type": "card", "token": "pm_card_visa", "brand": "Visa"},
@@ -53,7 +43,7 @@ PAYMENT_METHODS_SUCCESS = [
 ]
 
 
-# Failing payment methods
+# Failing payment method
 PAYMENT_METHOD_FAILING = {"type": "card", "token": "pm_card_chargeCustomerFail", "brand": "Visa (Will Fail)"}
 
 
@@ -86,19 +76,19 @@ TAX_TYPES = [
 
 # Subscription status distribution
 SUBSCRIPTION_STATUS_DISTRIBUTION = {
-    "active": 0.35,           # 35%
-    "active_with_end": 0.10,  # 10%
-    "trialing": 0.12,         # 12%
-    "past_due": 0.08,         # 8%
-    "canceled": 0.12,         # 12%
-    "unpaid": 0.08,           # 8%
-    "paused": 0.10,           # 10%
-    "scheduled": 0.05,        # 5%
+    "active": 0.35,
+    "active_with_end": 0.10,
+    "trialing": 0.12,
+    "past_due": 0.08,
+    "canceled": 0.12,
+    "unpaid": 0.08,
+    "paused": 0.10,
+    "scheduled": 0.05,
 }
 
 
 def fetch_existing_customers():
-    print("\nFetching existing customers from Stripe...")
+    print("Fetching existing customers from Stripe...")
     customers = []
     
     try:
@@ -257,14 +247,12 @@ def create_customers_with_payment_methods(num_customers):
     
     print(f"\nCreating {num_customers} NEW customers with payment methods...")
     
-    # 10% customers will have failing payment method
     num_failing = int(num_customers * 0.10)
     num_normal = num_customers - num_failing
     
     customers_normal = []
     customers_failing = []
     
-    # Create normal customers with valid payment methods
     print(f"\n→ Creating {num_normal} customers with VALID payment methods...")
     for i in range(num_normal):
         try:
@@ -294,7 +282,6 @@ def create_customers_with_payment_methods(num_customers):
             
             customer = stripe.Customer.create(**customer_params)
             
-            # Attach 1-4 valid payment methods
             num_payment_methods = random.randint(1, min(4, len(PAYMENT_METHODS_SUCCESS)))
             selected_methods = random.sample(PAYMENT_METHODS_SUCCESS, k=num_payment_methods)
             
@@ -332,7 +319,6 @@ def create_customers_with_payment_methods(num_customers):
         except Exception as e:
             print(f"✗ Error creating customer {i+1}: {e}")
     
-    # Create customers with FAILING payment method ONLY
     print(f"\n→ Creating {num_failing} customers with FAILING payment method (pm_card_chargeCustomerFail)...")
     for i in range(num_failing):
         try:
@@ -363,14 +349,12 @@ def create_customers_with_payment_methods(num_customers):
             
             customer = stripe.Customer.create(**customer_params)
             
-            # Attach ONLY the failing payment method
             try:
                 payment_method = stripe.PaymentMethod.attach(
                     PAYMENT_METHOD_FAILING["token"],
                     customer=customer.id,
                 )
                 
-                # Set it as default (and only) payment method
                 stripe.Customer.modify(
                     customer.id,
                     invoice_settings={
@@ -418,22 +402,18 @@ def create_subscriptions(customers_normal, customers_failing, products_with_pric
         print("✗ No products/prices available. Cannot create subscriptions.")
         return subscriptions
     
-    print(f"  Using {len(customers_normal)} normal customers")
-    print(f"  Using {len(customers_failing)} failing customers")
-    print(f"  Using {len(products_with_prices)} total products/prices")
-    
     status_counts = {status: 0 for status in SUBSCRIPTION_STATUS_DISTRIBUTION.keys()}
     
     for i in range(num_subscriptions):
         try:
-            # Select customer based on desired status
             desired_status = get_weighted_random_status()
             
-            # Use failing customers for past_due status
-            if desired_status == "past_due" and customers_failing:
+            if desired_status == "past_due" and len(customers_failing) > 0:
                 customer = customers_failing[i % len(customers_failing)]
-            else:
+            elif len(all_customers) > 0:
                 customer = all_customers[i % len(all_customers)]
+            else:
+                continue
             
             product_data = random.choice(products_with_prices)
             status_counts[desired_status] += 1
@@ -446,35 +426,29 @@ def create_subscriptions(customers_normal, customers_failing, products_with_pric
             if product_data["tax_rates"]:
                 subscription_params["default_tax_rates"] = product_data["tax_rates"]
             
-            # Configure based on desired status
             if desired_status == "active":
-                # Normal active subscription
                 pass
             elif desired_status == "active_with_end":
-                # Active subscription scheduled to cancel in future
                 cancel_at = int((datetime.now() + timedelta(days=random.randint(30, 90))).timestamp())
                 subscription_params["cancel_at"] = cancel_at
             elif desired_status == "trialing":
                 trial_end = int((datetime.now() + timedelta(days=random.randint(7, 30))).timestamp())
                 subscription_params["trial_end"] = trial_end
             elif desired_status == "canceled":
-                pass  # Will cancel after creation
+                pass
             elif desired_status == "past_due":
-                subscription_params["payment_behavior"] = "error_if_incomplete"
+                subscription_params["payment_behavior"] = "default_incomplete"
             elif desired_status == "unpaid":
                 subscription_params["payment_behavior"] = "default_incomplete"
             elif desired_status == "paused":
-                # Will pause after creation
                 pass
             elif desired_status == "scheduled":
-                # Subscription that starts in the future
                 billing_cycle_anchor = int((datetime.now() + timedelta(days=random.randint(7, 30))).timestamp())
                 subscription_params["billing_cycle_anchor"] = billing_cycle_anchor
-                subscription_params["trial_end"] = billing_cycle_anchor  # Trial until start date
+                subscription_params["trial_end"] = billing_cycle_anchor
             
             subscription = stripe.Subscription.create(**subscription_params)
             
-            # Post-processing for specific statuses
             if desired_status == "canceled":
                 stripe.Subscription.cancel(subscription.id)
             elif desired_status == "paused":
@@ -485,7 +459,6 @@ def create_subscriptions(customers_normal, customers_failing, products_with_pric
             
             subscriptions.append(subscription.id)
             
-            # Display different message for special statuses
             if desired_status == "active_with_end":
                 cancel_date = datetime.fromtimestamp(subscription_params["cancel_at"]).strftime("%Y-%m-%d")
                 print(f"✓ Created subscription {i+1}/{num_subscriptions}: active (ends {cancel_date})")
@@ -502,7 +475,7 @@ def create_subscriptions(customers_normal, customers_failing, products_with_pric
             print(f"✗ Error creating subscription {i+1}: {e}")
     
     print("\n" + "=" * 60)
-    print("Subscription status distribution:")
+    print("New subscription status distribution:")
     for status, count in status_counts.items():
         percentage = (count / num_subscriptions * 100) if num_subscriptions > 0 else 0
         print(f"  {status}: {count} ({percentage:.1f}%)")
@@ -516,28 +489,43 @@ def main():
     print("Starting Stripe account population")
     print("=" * 60)
     
-    # Fetch existing data from Stripe
+    # 1. Fetch all existing data
+    print()
     existing_customers = fetch_existing_customers()
     existing_products = fetch_existing_products_and_prices()
+    existing_tax_rates = fetch_existing_tax_rates()
     
-    # Determine if we need to create or fetch tax rates
+    # 2. Get user input for quantities
+    print("\n" + "=" * 60)
+    print("Configure data quantities (enter 0 to skip creation)")
+    print("=" * 60)
+    NUM_PRODUCTS = get_positive_integer("How many NEW products to create? (0 to skip): ", min_value=0)
+    NUM_CUSTOMERS = get_positive_integer("How many NEW customers to create? (0 to skip): ", min_value=0)
+    NUM_SUBSCRIPTIONS = get_positive_integer("How many NEW subscriptions to create? (min 1): ", min_value=1)
+    print("=" * 60 + "\n")
+    
+    # 3. Determine tax rates strategy
     has_existing_data = len(existing_customers) > 0 or len(existing_products) > 0
-    tax_rates_by_type = {"inclusive": [], "exclusive": []}
     new_tax_rates_created = False
     
-    if has_existing_data:
-        tax_rates_by_type = fetch_existing_tax_rates()
+    if len(existing_tax_rates["inclusive"]) > 0 or len(existing_tax_rates["exclusive"]) > 0:
+        # Use existing tax rates
+        tax_rates_by_type = existing_tax_rates
     elif NUM_PRODUCTS > 0:
+        # Create new tax rates only if creating products and no existing tax rates
         tax_rates_by_type = create_tax_rates()
         new_tax_rates_created = True
+    else:
+        # No tax rates needed
+        tax_rates_by_type = {"inclusive": [], "exclusive": []}
     
-    # Create new products and prices
+    # 4. Create new products and prices
     new_products = create_products_and_prices(tax_rates_by_type, NUM_PRODUCTS)
     
-    # Create new customers with payment methods (normal and failing)
+    # 5. Create new customers with payment methods
     new_customers_normal, new_customers_failing = create_customers_with_payment_methods(NUM_CUSTOMERS)
     
-    # Combine existing and new data
+    # 6. Combine existing and new data
     all_customers_normal = existing_customers + new_customers_normal
     all_customers_failing = new_customers_failing
     all_products = existing_products + new_products
@@ -557,10 +545,10 @@ def main():
         print(f"  - Tax rates ({tax_source}): {total_taxes}")
     print("=" * 60)
     
-    # Create subscriptions using ALL data
+    # 7. Create subscriptions
     subscriptions = create_subscriptions(all_customers_normal, all_customers_failing, all_products, NUM_SUBSCRIPTIONS)
     
-    print("\n" + "=" * 60)
+    print("\n" + "\n" + "=" * 60)
     print("Completed!")
     print("=" * 60)
     print(f"Created NEW:")

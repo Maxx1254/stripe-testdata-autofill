@@ -61,7 +61,12 @@ The script will validate the API key format before proceeding with data creation
 
 For security, the API key is not stored in the code and must be provided each time you run the script.
 
-3. Configure the quantities to create:
+3. The script will automatically fetch existing data from your Stripe account:
+   - Existing customers
+   - Existing products with recurring prices
+   - Existing tax rates
+
+4. Configure the quantities to create:
    - **Products**: Enter number of new products to create (0 to skip)
    - **Customers**: Enter number of new customers to create (0 to skip)
    - **Subscriptions**: Enter number of new subscriptions to create (minimum 1)
@@ -142,14 +147,15 @@ Each product is randomly assigned 0-2 tax rates matching its tax behavior (inclu
 
 ## How It Works
 
-1. **Detection Phase**: Script checks for existing customers, products, and tax rates in your Stripe account
-2. **Tax Rate Management**: 
-   - If existing data found → reuses existing tax rates
-   - If empty account + creating products → creates new tax rates
-   - Otherwise → skips tax rate creation
-3. **Data Creation**: Creates new products, customers, and subscriptions as specified
-4. **Data Combination**: Combines existing and new data for subscription creation
-5. **Summary**: Displays detailed summary of existing vs. new data created
+1. **Validation Phase**: Validates API key format
+2. **Detection Phase**: Fetches existing customers, products, and tax rates from your Stripe account
+3. **User Input**: Prompts for quantities of new products, customers and subscriptions
+4. **Tax Rate Strategy**: 
+   - If existing tax rates found → reuses them
+   - If no existing tax rates + creating products → creates new tax rates
+5. **Data Creation**: Creates new products, customers, and subscriptions as specified
+6. **Data Combination**: Combines existing and new data for subscription creation
+7. **Summary**: Displays detailed summary of existing vs. new data created
 
 ## Error Handling
 
