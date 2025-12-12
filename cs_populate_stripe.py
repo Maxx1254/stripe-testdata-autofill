@@ -50,16 +50,16 @@ PAYMENT_METHOD_FAILING = {"type": "card", "token": "pm_card_chargeCustomerFail",
 # Standard billing intervals
 BILLING_INTERVALS = [
     {"interval": "day", "interval_count": 1},
-    {"interval": "day", "interval_count": 7},
+#    {"interval": "day", "interval_count": 7},
     {"interval": "week", "interval_count": 1},
-    {"interval": "week", "interval_count": 2},
-    {"interval": "week", "interval_count": 4},
+#    {"interval": "week", "interval_count": 2},
+#    {"interval": "week", "interval_count": 4},
     {"interval": "month", "interval_count": 1},
-    {"interval": "month", "interval_count": 2},
-    {"interval": "month", "interval_count": 3},
-    {"interval": "month", "interval_count": 6},
+#    {"interval": "month", "interval_count": 2},
+#    {"interval": "month", "interval_count": 3},
+#    {"interval": "month", "interval_count": 6},
     {"interval": "year", "interval_count": 1},
-    {"interval": "year", "interval_count": 2},
+#    {"interval": "year", "interval_count": 2},
 ]
 
 
@@ -418,55 +418,72 @@ def create_subscriptions(customers_normal, customers_failing, products_with_pric
             product_data = random.choice(products_with_prices)
             status_counts[desired_status] += 1
             
-            subscription_params = {
-                "customer": customer["id"],
-                "items": [{"price": product_data["price_id"]}],
-            }
-            
-            if product_data["tax_rates"]:
-                subscription_params["default_tax_rates"] = product_data["tax_rates"]
-            
-            if desired_status == "active":
-                pass
-            elif desired_status == "active_with_end":
-                cancel_at = int((datetime.now() + timedelta(days=random.randint(30, 90))).timestamp())
-                subscription_params["cancel_at"] = cancel_at
-            elif desired_status == "trialing":
-                trial_end = int((datetime.now() + timedelta(days=random.randint(7, 30))).timestamp())
-                subscription_params["trial_end"] = trial_end
-            elif desired_status == "canceled":
-                pass
-            elif desired_status == "past_due":
-                subscription_params["payment_behavior"] = "default_incomplete"
-            elif desired_status == "unpaid":
-                subscription_params["payment_behavior"] = "default_incomplete"
-            elif desired_status == "paused":
-                pass
-            elif desired_status == "scheduled":
-                billing_cycle_anchor = int((datetime.now() + timedelta(days=random.randint(7, 30))).timestamp())
-                subscription_params["billing_cycle_anchor"] = billing_cycle_anchor
-                subscription_params["trial_end"] = billing_cycle_anchor
-            
-            subscription = stripe.Subscription.create(**subscription_params)
-            
-            if desired_status == "canceled":
-                stripe.Subscription.cancel(subscription.id)
-            elif desired_status == "paused":
-                stripe.Subscription.modify(
-                    subscription.id,
-                    pause_collection={"behavior": "keep_as_draft"}
+            # Handle scheduled subscriptions with Subscription Schedules
+            if desired_status == "scheduled":
+                start_date = int((datetime.now() + timedelta(days=random.randint(7, 30))).timestamp())
+                
+                schedule = stripe.SubscriptionSchedule.create(
+                    customer=customer["id"],
+                    start_date=start_date,
+                    end_behavior="release",
+                    phases=[
+                        {
+                            "items": [{"price": product_data["price_id"]}],
+                            "default_tax_rates": product_data["tax_rates"] if product_data["tax_rates"] else [],
+                        }
+                    ],
                 )
+                
+                subscriptions.append(schedule.id)
+                start_date_formatted = datetime.fromtimestamp(start_date).strftime("%Y-%m-%d")
+                print(f"✓ Created subscription {i+1}/{num_subscriptions}: scheduled (starts {start_date_formatted})")
             
-            subscriptions.append(subscription.id)
-            
-            if desired_status == "active_with_end":
-                cancel_date = datetime.fromtimestamp(subscription_params["cancel_at"]).strftime("%Y-%m-%d")
-                print(f"✓ Created subscription {i+1}/{num_subscriptions}: active (ends {cancel_date})")
-            elif desired_status == "scheduled":
-                start_date = datetime.fromtimestamp(billing_cycle_anchor).strftime("%Y-%m-%d")
-                print(f"✓ Created subscription {i+1}/{num_subscriptions}: scheduled (starts {start_date})")
             else:
-                print(f"✓ Created subscription {i+1}/{num_subscriptions} with target status: {desired_status}")
+                # Regular subscription creation for all other statuses
+                subscription_params = {
+                    "customer": customer["id"],
+                    "items": [{"price": product_data["price_id"]}],
+                }
+                
+                if product_data["tax_rates"]:
+                    subscription_params["default_tax_rates"] = product_data["tax_rates"]
+                
+                if desired_status == "active":
+                    pass
+                elif desired_status == "active_with_end":
+                    cancel_at = int((datetime.now() + timedelta(days=random.randint(30, 90))).timestamp())
+                    subscription_params["cancel_at"] = cancel_at
+                elif desired_status == "trialing":
+                    trial_end = int((datetime.now() + timedelta(days=random.randint(7, 30))).timestamp())
+                    subscription_params["trial_end"] = trial_end
+                elif desired_status == "canceled":
+                    pass
+                elif desired_status == "past_due":
+                    subscription_params["payment_behavior"] = "default_incomplete"
+                elif desired_status == "unpaid":
+                    subscription_params["payment_behavior"] = "default_incomplete"
+                elif desired_status == "paused":
+                    pass
+                
+                subscription = stripe.Subscription.create(**subscription_params)
+                
+                # Post-processing for certain statuses
+                if desired_status == "canceled":
+                    stripe.Subscription.cancel(subscription.id)
+                elif desired_status == "paused":
+                    stripe.Subscription.modify(
+                        subscription.id,
+                        pause_collection={"behavior": "keep_as_draft"}
+                    )
+                
+                subscriptions.append(subscription.id)
+                
+                # Display appropriate message
+                if desired_status == "active_with_end":
+                    cancel_date = datetime.fromtimestamp(subscription_params["cancel_at"]).strftime("%Y-%m-%d")
+                    print(f"✓ Created subscription {i+1}/{num_subscriptions}: active (ends {cancel_date})")
+                else:
+                    print(f"✓ Created subscription {i+1}/{num_subscriptions}: {desired_status}")
             
             if (i + 1) % 20 == 0:
                 time.sleep(1)
