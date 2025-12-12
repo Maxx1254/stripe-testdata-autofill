@@ -50,16 +50,16 @@ PAYMENT_METHOD_FAILING = {"type": "card", "token": "pm_card_chargeCustomerFail",
 # Standard billing intervals
 BILLING_INTERVALS = [
     {"interval": "day", "interval_count": 1},
-#    {"interval": "day", "interval_count": 7},
+    {"interval": "day", "interval_count": 7},
     {"interval": "week", "interval_count": 1},
-#    {"interval": "week", "interval_count": 2},
-#    {"interval": "week", "interval_count": 4},
+    {"interval": "week", "interval_count": 2},
+    {"interval": "week", "interval_count": 4},
     {"interval": "month", "interval_count": 1},
-#    {"interval": "month", "interval_count": 2},
-#    {"interval": "month", "interval_count": 3},
-#    {"interval": "month", "interval_count": 6},
+    {"interval": "month", "interval_count": 2},
+    {"interval": "month", "interval_count": 3},
+    {"interval": "month", "interval_count": 6},
     {"interval": "year", "interval_count": 1},
-#    {"interval": "year", "interval_count": 2},
+    {"interval": "year", "interval_count": 2},
 ]
 
 
